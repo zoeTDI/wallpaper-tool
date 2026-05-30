@@ -1,6 +1,4 @@
-import copy
 import os.path
-import time
 from typing import List, Dict
 
 from PyQt5.QtGui import QPixmap, QColor
@@ -8,10 +6,6 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QFrame, QLabel, Q
     QPushButton, QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QProgressDialog, QApplication, \
     QMessageBox
 from PyQt5.QtCore import Qt
-from utils.files import get_direct_subfolders_pathlib, find_file_case_insensitive, build_complete_path, \
-    get_downloads_folder, get_original_folder, copy_file_to_folder, rename_file_keep_ext, sanitize_filename, \
-    limit_filename_length
-from utils.parse import parse_json_to_dict
 from utils.service import WallpaperService
 
 class MainWindow(QMainWindow):
@@ -132,27 +126,33 @@ class MainWindow(QMainWindow):
         mid_layout = QVBoxLayout(region_widget)
         # 筛选区域
         filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(8)
 
         type_cfg = self.config['filters']['type']
         type_filter_label = QLabel(type_cfg['label'], self)
         self.type_filter_combo = QComboBox(self)
         self.type_filter_combo.addItems(type_cfg["options"])
         self.type_filter_combo.setCurrentText(type_cfg["default"])
+        self.type_filter_combo.setMinimumWidth(80)
 
         age_cfg = self.config["filters"]["age"]
         age_filter_label = QLabel(age_cfg["label"], self)
         self.age_filter_combo = QComboBox(self)
         self.age_filter_combo.addItems(age_cfg["options"])
         self.age_filter_combo.setCurrentText(age_cfg["default"])
+        self.age_filter_combo.setMinimumWidth(80)
 
         filter_btn = QPushButton('筛选', self)
+        filter_btn.setFixedSize(70, 26)
         filter_btn.clicked.connect(self.filter_wallpapers)
 
         filter_layout.addWidget(type_filter_label)
         filter_layout.addWidget(self.type_filter_combo)
+        filter_layout.addSpacing(10)
         filter_layout.addWidget(age_filter_label)
         filter_layout.addWidget(self.age_filter_combo)
         filter_layout.addWidget(filter_btn)
+        filter_layout.addStretch()
 
         columns_config = self.config["table_columns"]
         table_labels = [col["label"] for col in columns_config]
