@@ -162,7 +162,6 @@ class MainWindow(QMainWindow):
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
         self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
-        self.table_widget.itemChanged.connect(self.on_table_item_changed)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
 
@@ -198,16 +197,10 @@ class MainWindow(QMainWindow):
             # 动态获取你在 config 中为第 0 列设置的宽度
             column_width = self.table_widget.columnWidth(0)
 
-            # 预留内边距后的实际图片宽度（例如左右各预留 4px 内边距，总共减去 8）
             padding_total = 8
             side_length = column_width - padding_total
 
-            # 确保边长大于 0，防止极端情况下报错
             if side_length > 0:
-                # 核心：为了实现 1/1 的长宽比，并且填满宽度，
-                # 我们将目标宽高都设为 side_length (正方形)
-                # 使用 Qt.IgnoreAspectRatio 强制拉伸填满 1:1 正方形
-                # 如果你希望图片不失真地裁剪或居中，建议使用 SmoothTransformation
                 scaled_pixmap = pixmap.scaled(
                     side_length,
                     side_length,
@@ -216,17 +209,15 @@ class MainWindow(QMainWindow):
                 )
                 img_label.setPixmap(scaled_pixmap)
 
-                # 同步调整行高：为了完美呈现 1:1 的正方形，这一行的高度应该与列宽一致（加上上下内边距）
                 self.table_widget.setRowHeight(row_idx, column_width)
         else:
-            # 错误处理：渲染占位文字
             img_label.setText("无预览")
             img_label.setStyleSheet("color: #999999; font-size: 11px; padding: 4px;")
 
         self.table_widget.setCellWidget(row_idx, 0, img_label)
 
         name_item = QTableWidgetItem(title)
-        name_item.setCheckState(Qt.Unchecked)
+        name_item.setData(Qt.UserRole, False)
         self.table_widget.setItem(row_idx, 1, name_item)
         self.table_widget.setItem(row_idx, 2, QTableWidgetItem(data_type))
         self.table_widget.setItem(row_idx, 3, QTableWidgetItem(contentrating))
@@ -242,16 +233,6 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(action_btn)
         self.table_widget.setCellWidget(row_idx, 5, btn_container)
 
-    def on_table_item_changed(self, item):
-        """
-        当单元格内容或状态改变时触发。如果是名称列（第1列）的勾选状态变了，同步改变背景色。
-        """
-        # 确保是名称列（第 1 列）
-        if item.column() == 1:
-            row = item.row()
-            is_checked = (item.checkState() == Qt.Checked)
-            self._set_row_background_color(row, is_checked)
-
     def on_table_cell_clicked(self, row: int, column: int):
         """
         当用户点击表格的任意单元格时触发，实现点击整行即可切换勾选状态。
@@ -261,13 +242,14 @@ class MainWindow(QMainWindow):
             return
         name_item = self.table_widget.item(row, 1)
         if name_item:
-            if name_item.checkState() == Qt.Checked:
-                name_item.setCheckState(Qt.Unchecked)
-                is_checked = False
-            else:
-                name_item.setCheckState(Qt.Checked)
-                is_checked = True
-            self._set_row_background_color(row, is_checked)
+            current_state = name_item.data(Qt.UserRole)
+            if current_state is None:
+                current_state = False
+
+            new_state = not current_state
+            name_item.setData(Qt.UserRole, new_state)
+
+            self._set_row_background_color(row, new_state)
 
     def on_row_btn_clicked(self, title, file):
         """
@@ -297,7 +279,7 @@ class MainWindow(QMainWindow):
         selected_list = []
         for row_idx in range(self.table_widget.rowCount()):
             item = self.table_widget.item(row_idx, 1)
-            if item and item.checkState() == Qt.Checked:
+            if item and item.data(Qt.UserRole) is True:
                 selected_list.append(self.displayed_data[row_idx])
         return selected_list
 
