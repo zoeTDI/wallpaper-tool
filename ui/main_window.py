@@ -161,6 +161,7 @@ class MainWindow(QMainWindow):
         self.table_widget.verticalHeader().setDefaultSectionSize(55)
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
+        self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
 
@@ -239,6 +240,20 @@ class MainWindow(QMainWindow):
 
         btn_layout.addWidget(action_btn)
         self.table_widget.setCellWidget(row_idx, 5, btn_container)
+
+    def on_table_cell_clicked(self, row: int, column: int):
+        """
+        当用户点击表格的任意单元格时触发，实现点击整行即可切换勾选状态。
+        """
+        actions_col_idx = self.table_widget.columnCount() - 1
+        if column == actions_col_idx:
+            return
+        name_item = self.table_widget.item(row, 1)
+        if name_item:
+            if name_item.checkState() == Qt.Checked:
+                name_item.setCheckState(Qt.Unchecked)
+            else:
+                name_item.setCheckState(Qt.Checked)
 
     def on_row_btn_clicked(self, title, file):
         """
