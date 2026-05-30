@@ -3,7 +3,7 @@ import os.path
 import time
 from typing import List, Dict
 
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QColor
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QFrame, QLabel, QHBoxLayout, QLineEdit, \
     QPushButton, QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QProgressDialog, QApplication, \
     QMessageBox
@@ -162,6 +162,7 @@ class MainWindow(QMainWindow):
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
         self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
+        self.table_widget.itemChanged.connect(self.on_table_item_changed)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
 
@@ -241,6 +242,16 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(action_btn)
         self.table_widget.setCellWidget(row_idx, 5, btn_container)
 
+    def on_table_item_changed(self, item):
+        """
+        当单元格内容或状态改变时触发。如果是名称列（第1列）的勾选状态变了，同步改变背景色。
+        """
+        # 确保是名称列（第 1 列）
+        if item.column() == 1:
+            row = item.row()
+            is_checked = (item.checkState() == Qt.Checked)
+            self._set_row_background_color(row, is_checked)
+
     def on_table_cell_clicked(self, row: int, column: int):
         """
         当用户点击表格的任意单元格时触发，实现点击整行即可切换勾选状态。
@@ -252,8 +263,11 @@ class MainWindow(QMainWindow):
         if name_item:
             if name_item.checkState() == Qt.Checked:
                 name_item.setCheckState(Qt.Unchecked)
+                is_checked = False
             else:
                 name_item.setCheckState(Qt.Checked)
+                is_checked = True
+            self._set_row_background_color(row, is_checked)
 
     def on_row_btn_clicked(self, title, file):
         """
@@ -336,3 +350,22 @@ class MainWindow(QMainWindow):
             if reply == QMessageBox.Yes and target_folder:
                 os.startfile(target_folder)
 
+    def _set_row_background_color(self, row: int, is_checked: bool):
+        """
+        根据勾选状态，动态改变整行的背景颜色
+        :param row: 行号
+        :param is_checked: 是否被勾选
+        :return: None
+        """
+        color_hex = "#E6F3FF" if is_checked else "#FFFFFF"
+        qcolor = Qt.GlobalColor.white if not is_checked else QColor("#E6F3FF")  # 如果报错QColor未引入，可以用下面的样式表方案，更稳妥
+
+        # 遍历该行的所有列
+        for col in range(self.table_widget.columnCount()):
+            item = self.table_widget.item(row, col)
+            if item:
+                item.setBackground(QColor(color_hex))
+
+            widget = self.table_widget.cellWidget(row, col)
+            if widget:
+                widget.setStyleSheet(f"background-color: {color_hex};")
