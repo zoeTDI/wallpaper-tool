@@ -100,6 +100,7 @@ def copy_file_to_folder(source_file_path: str, target_folder_path: str) -> str:
 def rename_file_keep_ext(file_path: str, new_name_without_ext: str) -> str:
     """
     修改指定文件的文件名，同时保留其原有的扩展名。
+    如果新文件名已存在，则自动在文件名后添加 (1), (2), (3)... 序号直至成功。
 
     :param file_path: 原文件的完整路径
     :param new_name_without_ext: 新的文件名（不包含扩展名，例如 'my_video'）
@@ -112,17 +113,36 @@ def rename_file_keep_ext(file_path: str, new_name_without_ext: str) -> str:
         raise FileNotFoundError(f"找不到要重命名的文件: {file_path}")
 
     # 2. 获取原文件的扩展名（例如 '.mp4'）
-    # old_path.suffix 会自带点号，比如 ".mp4"
     file_extension = old_path.suffix
 
-    # 3. 拼接新的文件名 + 原扩展名
+    # 3. 基础尝试：构建初始目标路径
     full_new_name = f"{new_name_without_ext}{file_extension}"
-
-    # 4. 构建新文件的完整路径（保持在同一个父目录下）
     new_path = old_path.parent / full_new_name
 
+    # 4. 冲突处理循环：仿照 Windows 命名规则，如果目标文件已存在，则添加序号
+    counter = 1
+    while new_path.exists():
+        # 如果新路径正好就是旧路径本身（比如大小写不敏感系统上的同名重命名），则不视为冲突，直接跳出
+        if new_path.resolve() == old_path.resolve():
+            break
+
+        # 仿照 Windows 格式： 文件名 (1).mp4
+        numbered_name = f"{new_name_without_ext} ({counter}){file_extension}"
+        new_path = old_path.parent / numbered_name
+        counter += 1
+
     # 5. 执行重命名操作
-    old_path.rename(new_path)
+    try:
+        old_path.rename(new_path)
+    except FileExistsError:
+        # 防御性容错：如果在高并发或极端情况下循环未挡住，捕获后继续递增重试
+        while True:
+            numbered_name = f"{new_name_without_ext} ({counter}){file_extension}"
+            new_path = old_path.parent / numbered_name
+            if not new_path.exists():
+                old_path.rename(new_path)
+                break
+            counter += 1
 
     return str(new_path)
 
