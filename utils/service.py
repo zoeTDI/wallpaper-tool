@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from utils.files import get_direct_subfolders_pathlib, find_file_case_insensitive, build_complete_path, \
     get_original_folder, copy_file_to_folder, sanitize_filename, limit_filename_length, rename_file_keep_ext
 from utils.parse import parse_json_to_dict
-
+from utils.config import WALLPAPER_TOOL_CONFIG
 
 class WallpaperService:
     """
@@ -13,6 +13,14 @@ class WallpaperService:
     """
     def __init__(self):
         self.raw_wallpapers: List[Dict[str, Any]] = []
+        self.config = WALLPAPER_TOOL_CONFIG
+
+    def get_config(self)->Dict[str, Any]:
+        """
+        为UI层提供配置数据
+        :return: 配置数据
+        """
+        return self.config
 
     def scan_directory(self, dir_path: str) -> List[Dict[str, Any]]:
         """

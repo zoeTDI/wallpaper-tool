@@ -20,6 +20,8 @@ class MainWindow(QMainWindow):
         self.service = WallpaperService()
         self.displayed_data: List[Dict] = []
 
+        self.config = self.service.get_config()
+
         self.initUI()
 
     def initUI(self):
@@ -99,7 +101,7 @@ class MainWindow(QMainWindow):
     def scan_wallpaper_dir(self):
         dir_path = self.path_input.text().strip()
         self.displayed_data = self.service.scan_directory(dir_path)
-        self.update_table_display()
+        self.filter_wallpapers()
 
     def filter_wallpapers(self):
         selected_type = self.type_filter_combo.currentText()
@@ -128,13 +130,18 @@ class MainWindow(QMainWindow):
         mid_layout = QVBoxLayout(region_widget)
         # 筛选区域
         filter_layout = QHBoxLayout()
-        type_filter_label = QLabel('文件类型', self)
-        self.type_filter_combo = QComboBox(self)
-        self.type_filter_combo.addItems(['全部', '视频', '应用', '网页', '场景'])
 
-        age_filter_label = QLabel('年龄限制', self)
+        type_cfg = self.config['filters']['type']
+        type_filter_label = QLabel(type_cfg['label'], self)
+        self.type_filter_combo = QComboBox(self)
+        self.type_filter_combo.addItems(type_cfg["options"])
+        self.type_filter_combo.setCurrentText(type_cfg["default"])
+
+        age_cfg = self.config["filters"]["age"]
+        age_filter_label = QLabel(age_cfg["label"], self)
         self.age_filter_combo = QComboBox(self)
-        self.age_filter_combo.addItems(['全部', '全年龄', '指导级', '限制级'])
+        self.age_filter_combo.addItems(age_cfg["options"])
+        self.age_filter_combo.setCurrentText(age_cfg["default"])
 
         filter_btn = QPushButton('筛选', self)
         filter_btn.clicked.connect(self.filter_wallpapers)
@@ -145,21 +152,27 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.age_filter_combo)
         filter_layout.addWidget(filter_btn)
 
-        table_options = ['名称', '类型', '年龄限制', '文件', '操作']
+        columns_config = self.config["table_columns"]
+        table_labels = [col["label"] for col in columns_config]
 
         self.table_widget = QTableWidget(self)
-        self.table_widget.setColumnCount(len(table_options))
-        self.table_widget.setHorizontalHeaderLabels(table_options)
+        self.table_widget.setColumnCount(len(table_labels))
+        self.table_widget.setHorizontalHeaderLabels(table_labels)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
 
         header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.Interactive)  # 允许用户手动微调
-        self.table_widget.setColumnWidth(4, 100)
+
+        for idx, col in enumerate(columns_config):
+            mode = col["mode"]
+            if mode == "stretch":
+                header.setSectionResizeMode(idx, QHeaderView.Stretch)
+            elif mode == "contents":
+                header.setSectionResizeMode(idx, QHeaderView.ResizeToContents)
+            elif mode == "interactive":
+                header.setSectionResizeMode(idx, QHeaderView.Interactive)
+                if col["width"]:
+                    self.table_widget.setColumnWidth(idx, col["width"])
 
         mid_layout.addLayout(filter_layout)
         mid_layout.addWidget(self.table_widget)
