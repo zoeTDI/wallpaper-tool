@@ -1,22 +1,8 @@
 import os.path
 import sqlite3
 from typing import List
+from db.enum import DB_NAME, CONFIG_SQL, WALLPAPER_DATA
 
-DB_NAME = 'wallpaperTool.db'
-
-CONFIG_SQL = """
-CREATE TABLE IF NOT EXISTS config (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    KEY TEXT NOT NULL,
-    VALUE TEXT
-);"""
-WALLPAPER_DATA = """
-CREATE TABLE IF NOT EXISTS wallpaper (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    json_path TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    name TEXT NOT NULL
-);"""
 
 TABLE_SQLS = [CONFIG_SQL, WALLPAPER_DATA]
 
