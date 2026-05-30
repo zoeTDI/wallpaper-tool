@@ -3,6 +3,7 @@ import os.path
 import time
 from typing import List, Dict
 
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QFrame, QLabel, QHBoxLayout, QLineEdit, \
     QPushButton, QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QProgressDialog, QApplication, \
     QMessageBox
@@ -117,6 +118,7 @@ class MainWindow(QMainWindow):
         for row_idx, data in enumerate(self.displayed_data):
             self.add_table_row(
                 row_idx,
+                data.get('preview', ''),
                 data.get('title', 'Unknown'),
                 data.get('type', 'Unknown'),
                 data.get('contentrating', 'everyone'),
@@ -156,6 +158,7 @@ class MainWindow(QMainWindow):
         table_labels = [col["label"] for col in columns_config]
 
         self.table_widget = QTableWidget(self)
+        self.table_widget.verticalHeader().setDefaultSectionSize(55)
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
         # 最后一列自适应
@@ -177,19 +180,55 @@ class MainWindow(QMainWindow):
         mid_layout.addLayout(filter_layout)
         mid_layout.addWidget(self.table_widget)
 
-    def add_table_row(self, row_idx, title, data_type, contentrating, file):
+    def add_table_row(self, row_idx, preview_path, title, data_type, contentrating, file):
         """
         向表格中动态插入一行的工具函数
         """
         if self.table_widget.rowCount() <= row_idx:
             self.table_widget.setRowCount(row_idx + 1)
 
+        img_label = QLabel()
+        img_label.setAlignment(Qt.AlignHCenter)
+        img_label.setStyleSheet("padding: 4px")
+
+        pixmap = QPixmap()
+        if preview_path and os.path.exists(preview_path) and pixmap.load(preview_path):
+            # 动态获取你在 config 中为第 0 列设置的宽度
+            column_width = self.table_widget.columnWidth(0)
+
+            # 预留内边距后的实际图片宽度（例如左右各预留 4px 内边距，总共减去 8）
+            padding_total = 8
+            side_length = column_width - padding_total
+
+            # 确保边长大于 0，防止极端情况下报错
+            if side_length > 0:
+                # 核心：为了实现 1/1 的长宽比，并且填满宽度，
+                # 我们将目标宽高都设为 side_length (正方形)
+                # 使用 Qt.IgnoreAspectRatio 强制拉伸填满 1:1 正方形
+                # 如果你希望图片不失真地裁剪或居中，建议使用 SmoothTransformation
+                scaled_pixmap = pixmap.scaled(
+                    side_length,
+                    side_length,
+                    Qt.IgnoreAspectRatio,  # 强制 1:1 比例
+                    Qt.SmoothTransformation
+                )
+                img_label.setPixmap(scaled_pixmap)
+
+                # 同步调整行高：为了完美呈现 1:1 的正方形，这一行的高度应该与列宽一致（加上上下内边距）
+                self.table_widget.setRowHeight(row_idx, column_width)
+        else:
+            # 错误处理：渲染占位文字
+            img_label.setText("无预览")
+            img_label.setStyleSheet("color: #999999; font-size: 11px; padding: 4px;")
+
+        self.table_widget.setCellWidget(row_idx, 0, img_label)
+
         name_item = QTableWidgetItem(title)
         name_item.setCheckState(Qt.Unchecked)
-        self.table_widget.setItem(row_idx, 0, name_item)
-        self.table_widget.setItem(row_idx, 1, QTableWidgetItem(data_type))
-        self.table_widget.setItem(row_idx, 2, QTableWidgetItem(contentrating))
-        self.table_widget.setItem(row_idx, 3, QTableWidgetItem(file))
+        self.table_widget.setItem(row_idx, 1, name_item)
+        self.table_widget.setItem(row_idx, 2, QTableWidgetItem(data_type))
+        self.table_widget.setItem(row_idx, 3, QTableWidgetItem(contentrating))
+        self.table_widget.setItem(row_idx, 4, QTableWidgetItem(file))
 
         btn_container = QWidget()
         btn_layout = QHBoxLayout(btn_container)
@@ -199,7 +238,7 @@ class MainWindow(QMainWindow):
         action_btn.clicked.connect(lambda: self.on_row_btn_clicked(title, file))
 
         btn_layout.addWidget(action_btn)
-        self.table_widget.setCellWidget(row_idx, 4, btn_container)
+        self.table_widget.setCellWidget(row_idx, 5, btn_container)
 
     def on_row_btn_clicked(self, title, file):
         """
@@ -228,7 +267,7 @@ class MainWindow(QMainWindow):
         """
         selected_list = []
         for row_idx in range(self.table_widget.rowCount()):
-            item = self.table_widget.item(row_idx, 0)
+            item = self.table_widget.item(row_idx, 1)
             if item and item.checkState() == Qt.Checked:
                 selected_list.append(self.displayed_data[row_idx])
         return selected_list

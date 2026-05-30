@@ -41,6 +41,13 @@ class WallpaperService:
             if not wallpaper_obj:
                 continue
 
+            preview_filename = wallpaper_obj.get('preview')
+            if preview_filename:
+                build_preview_path = build_complete_path(json_path, preview_filename)
+                wallpaper_obj['preview'] = build_preview_path
+            else:
+                wallpaper_obj['preview'] = ''
+
             build_file_path = build_complete_path(json_path, wallpaper_obj.get('file'))
             wallpaper_obj['file'] = build_file_path
             self._raw_wallpapers.append(wallpaper_obj)

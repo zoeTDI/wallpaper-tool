@@ -18,6 +18,7 @@ WALLPAPER_TOOL_CONFIG = {
     # 2. 表格的列配置
     # key: 数据字典中的键名, label: 界面显示的列名, mode: 缩放模式 (stretch=自适应, contents=根据内容, interactive=可手动微调)
     "table_columns": [
+        {"key": "preview", "label": "预览图", "mode": "interactive", "width": 140},
         {"key": "title", "label": "名称", "mode": "stretch", "width": None},
         {"key": "type", "label": "类型", "mode": "contents", "width": None},
         {"key": "contentrating", "label": "年龄限制", "mode": "contents", "width": None},
