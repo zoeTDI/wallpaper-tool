@@ -3,7 +3,8 @@ import os.path
 from typing import List, Dict, Any
 
 from utils.files import get_direct_subfolders_pathlib, find_file_case_insensitive, build_complete_path, \
-    get_original_folder, copy_file_to_folder, sanitize_filename, limit_filename_length, rename_file_keep_ext
+    get_original_folder, copy_file_to_folder, sanitize_filename, limit_filename_length, rename_file_keep_ext, \
+    get_file_metadata
 from utils.parse import parse_json_to_dict
 from utils.config import WALLPAPER_TOOL_CONFIG
 
@@ -12,7 +13,7 @@ class WallpaperService:
     专门处理壁纸数据的业务逻辑类
     """
     def __init__(self):
-        self.raw_wallpapers: List[Dict[str, Any]] = []
+        self._raw_wallpapers: List[Dict[str, Any]] = []
         self.config = WALLPAPER_TOOL_CONFIG
 
     def get_config(self)->Dict[str, Any]:
@@ -50,6 +51,10 @@ class WallpaperService:
 
             build_file_path = build_complete_path(json_path, wallpaper_obj.get('file'))
             wallpaper_obj['file'] = build_file_path
+            metadata = get_file_metadata(build_file_path)
+
+            wallpaper_obj.update(metadata)
+
             self._raw_wallpapers.append(wallpaper_obj)
         return copy.deepcopy(self._raw_wallpapers)
 
@@ -90,11 +95,16 @@ class WallpaperService:
         """
         if not file_path or not os.path.exists(file_path):
             raise FileNotFoundError(f"找不到壁纸文件： {file_path}")
-        target_folder = get_original_folder()
-        copy_file_path = copy_file_to_folder(file_path, target_folder)
-
         safe_title = sanitize_filename(title)
         safe_title = limit_filename_length(safe_title)
-        rename_file_keep_ext(copy_file_path, safe_title)
 
-        return target_folder
+        target_root = get_original_folder()
+
+        src_name = os.path.basename(file_path)
+        dest_path = os.path.join(target_root, src_name)
+
+        copy_file_to_folder(file_path, target_root)
+
+        rename_file_keep_ext(dest_path, safe_title)
+
+        return target_root
