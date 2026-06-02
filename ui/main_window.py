@@ -188,11 +188,42 @@ class MainWindow(QMainWindow):
         bottom_layout = QHBoxLayout(region_widget)
         bottom_layout.setContentsMargins(10, 5, 10, 5)
 
+        # 新增：全选按钮
+        self.select_all_btn = QPushButton('全选', self)
+        self.select_all_btn.setFixedSize(80, 35)
+        self.select_all_btn.clicked.connect(lambda: self.set_all_rows_selection(True))
+        bottom_layout.addWidget(self.select_all_btn)
+
+        # 新增：清空全选按钮
+        self.clear_all_btn = QPushButton('清空全选', self)
+        self.clear_all_btn.setFixedSize(80, 35)
+        self.clear_all_btn.clicked.connect(lambda: self.set_all_rows_selection(False))
+        bottom_layout.addWidget(self.clear_all_btn)
+
         bottom_layout.addStretch()
+
         self.batch_export_btn = QPushButton('批量导出', self)
         self.batch_export_btn.setFixedSize(120, 35)
         self.batch_export_btn.clicked.connect(self.batch_export)
         bottom_layout.addWidget(self.batch_export_btn)
+
+    def set_all_rows_selection(self, is_selected: bool):
+        """
+        统一设置所有行的选中状态与背景色
+        :param is_selected: True 为全选，False 为清空全选
+        """
+        if not self.table_widget or self.table_widget.rowCount() == 0:
+            return
+
+        title_col_idx = self._get_column_index_by_key("title")
+
+        for row in range(self.table_widget.rowCount()):
+            name_item = self.table_widget.item(row, title_col_idx)
+            if name_item:
+                # 更新绑定的选中数据状态
+                name_item.setData(Qt.UserRole, is_selected)
+                # 联动改变该行背景色
+                self._set_row_background_color(row, is_selected)
 
     def add_table_row(self, row_idx, data_item: dict):
         """
