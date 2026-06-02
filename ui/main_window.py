@@ -356,12 +356,11 @@ class MainWindow(QMainWindow):
             print(f"列【{column_label}】不支持排序。")
             return
 
-        # 2. 决定排序方向 (如果点击的是当前列，反转方向；如果是新列，默认降序/升序)
+        # 2. 决定排序方向 (如果点击的是当前列，反转方向；如果是新列，默认降序)
         if self.current_sort_key == column_key:
             self.is_ascending = not self.is_ascending
         else:
             self.current_sort_key = column_key
-            # 针对时间或大小，通常用户第一次点击更希望看到最新的或最大的，这里默认先设为降序(False)
             self.is_ascending = False
 
         print(f"正在对【{column_label}】进行排序，方向: {'升序' if self.is_ascending else '降序'}")
@@ -369,19 +368,27 @@ class MainWindow(QMainWindow):
         # 3. 核心排序算法
         def sort_key_provider(item: dict):
             val = item.get(column_key, '')
-
-            # 如果是文件大小，强制转换为整型进行数学比较
             if column_key == "file_size_bytes":
                 try:
                     return int(val) if val else 0
                 except (ValueError, TypeError):
                     return 0
-
-            # 如果是时间或者其他文本，统一转成小写字符串比较
             return str(val).lower()
 
-        # 4. 对数据源进行排序
+        # 对数据源进行排序
         self.displayed_data.sort(key=sort_key_provider, reverse=not self.is_ascending)
+
+        # 4. ====== 核心优化：动态更新表头箭头提示 ======
+        header = self.table_widget.horizontalHeader()
+        for idx, col_cfg in enumerate(columns_config):
+            original_label = col_cfg["label"]
+            # 如果是当前排序的列，根据正倒序添加对应的箭头后缀
+            if col_cfg["key"] == self.current_sort_key:
+                arrow = " ▲" if self.is_ascending else " ▼"
+                self.table_widget.setHorizontalHeaderItem(idx, QTableWidgetItem(original_label + arrow))
+            else:
+                # 其他列一律还原为最原始的无箭头标签
+                self.table_widget.setHorizontalHeaderItem(idx, QTableWidgetItem(original_label))
 
         # 5. 重新刷新界面表格渲染
         self.update_table_display()
