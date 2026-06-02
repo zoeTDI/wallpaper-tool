@@ -166,7 +166,6 @@ class MainWindow(QMainWindow):
         self.table_widget.verticalHeader().setDefaultSectionSize(55)
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
-        self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
         self.table_widget.horizontalHeader().setSectionsClickable(True)
         self.table_widget.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
         self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
