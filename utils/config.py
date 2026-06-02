@@ -22,6 +22,12 @@ WALLPAPER_TOOL_CONFIG = {
         {"key": "title", "label": "名称", "mode": "stretch", "width": None},
         {"key": "type", "label": "类型", "mode": "contents", "width": None},
         {"key": "contentrating", "label": "年龄限制", "mode": "contents", "width": None},
+
+        # ====== 新增元数据列配置 ======
+        {"key": "modify_time", "label": "修改时间", "mode": "contents", "width": None},
+        {"key": "file_size_bytes", "label": "文件大小", "mode": "contents", "width": None},
+        # ============================
+
         {"key": "file", "label": "文件", "mode": "stretch", "width": None},
         {"key": "actions", "label": "操作", "mode": "interactive", "width": 100}  # 固定操作列
     ]
