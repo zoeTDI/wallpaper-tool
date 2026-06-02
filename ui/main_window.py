@@ -18,6 +18,9 @@ class MainWindow(QMainWindow):
 
         self.config = self.service.get_config()
 
+        self.current_sort_key = None  # 当前排序的字段 key
+        self.is_ascending = True  # True 为升序(正序)，False 为降序(倒序)
+
         self.init_ui()
 
     def init_ui(self):
@@ -339,7 +342,6 @@ class MainWindow(QMainWindow):
         排序预留功能函数：当用户点击某一列的表头时触发
         :param logical_index: 被点击列的索引
         """
-        # 1. 提取当前被点击列的配置信息
         columns_config = self.config["table_columns"]
         if logical_index >= len(columns_config):
             return
@@ -347,20 +349,42 @@ class MainWindow(QMainWindow):
         clicked_column = columns_config[logical_index]
         column_key = clicked_column["key"]
         column_label = clicked_column["label"]
+        formatter = clicked_column.get("formatter")
 
-        # 2. 过滤掉不支持排序的列（例如预览图和操作按钮）
-        if column_key in ["preview", "actions"]:
+        # 1. 过滤掉不支持排序的列
+        if formatter in ["preview", "actions"]:
             print(f"列【{column_label}】不支持排序。")
             return
 
-        # 3. 预留阶段提示与后续切入点
-        print(f"提示：用户点击了表头【{column_label}】(Key: {column_key})，触发排序预留逻辑。")
+        # 2. 决定排序方向 (如果点击的是当前列，反转方向；如果是新列，默认降序/升序)
+        if self.current_sort_key == column_key:
+            self.is_ascending = not self.is_ascending
+        else:
+            self.current_sort_key = column_key
+            # 针对时间或大小，通常用户第一次点击更希望看到最新的或最大的，这里默认先设为降序(False)
+            self.is_ascending = False
 
-        # 【TODO: 排序功能后续在此处实现】
-        # 这里的思路通常是：
-        # 1. 判断当前的排序状态（正序、倒序或交替切换）
-        # 2. 对自有的数据列表 `self.displayed_data` 进行重排：self.displayed_data.sort(key=lambda x: x.get(column_key))
-        # 3. 调用 `self.update_table_display()` 重新刷新表格渲染
+        print(f"正在对【{column_label}】进行排序，方向: {'升序' if self.is_ascending else '降序'}")
+
+        # 3. 核心排序算法
+        def sort_key_provider(item: dict):
+            val = item.get(column_key, '')
+
+            # 如果是文件大小，强制转换为整型进行数学比较
+            if column_key == "file_size_bytes":
+                try:
+                    return int(val) if val else 0
+                except (ValueError, TypeError):
+                    return 0
+
+            # 如果是时间或者其他文本，统一转成小写字符串比较
+            return str(val).lower()
+
+        # 4. 对数据源进行排序
+        self.displayed_data.sort(key=sort_key_provider, reverse=not self.is_ascending)
+
+        # 5. 重新刷新界面表格渲染
+        self.update_table_display()
 
     def _set_row_background_color(self, row: int, is_checked: bool):
         """
