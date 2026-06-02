@@ -1,5 +1,4 @@
 import os.path
-import math
 from typing import List, Dict
 
 from PyQt5.QtGui import QPixmap, QColor
@@ -19,9 +18,9 @@ class MainWindow(QMainWindow):
 
         self.config = self.service.get_config()
 
-        self.initUI()
+        self.init_ui()
 
-    def initUI(self):
+    def init_ui(self):
         self.setWindowTitle('Wallpaper Tool')
         self.resize(1000, 800)
         # 最小窗口大小
