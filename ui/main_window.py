@@ -47,20 +47,13 @@ class MainWindow(QMainWindow):
         middle_region = QFrame()
         middle_region.setFrameShape(QFrame.StyledPanel)
         self.init_middle_region(middle_region)
-        main_layout.addWidget(middle_region, stretch=6)
 
         # 下方区域
         bottom_region = QFrame()
         bottom_region.setFrameShape(QFrame.StyledPanel)
-        bottom_layout = QHBoxLayout(bottom_region)
-        bottom_layout.setContentsMargins(10, 5, 10, 5)
+        self.init_bottom_region(bottom_region)  # <-- 替换为新函数
 
-        bottom_layout.addStretch()
-        self.batch_export_btn = QPushButton('批量导出', self)
-        self.batch_export_btn.setFixedSize(120, 35)
-        self.batch_export_btn.clicked.connect(self.batch_export)
-        bottom_layout.addWidget(self.batch_export_btn)
-
+        # 将三大区域添加到主布局中
         main_layout.addWidget(top_region, stretch=1)
         main_layout.addWidget(middle_region, stretch=6)
         main_layout.addWidget(bottom_region, stretch=1)
@@ -187,6 +180,19 @@ class MainWindow(QMainWindow):
 
         mid_layout.addLayout(filter_layout)
         mid_layout.addWidget(self.table_widget)
+
+    def init_bottom_region(self, region_widget):
+        """
+        构建下方的批量操作区域
+        """
+        bottom_layout = QHBoxLayout(region_widget)
+        bottom_layout.setContentsMargins(10, 5, 10, 5)
+
+        bottom_layout.addStretch()
+        self.batch_export_btn = QPushButton('批量导出', self)
+        self.batch_export_btn.setFixedSize(120, 35)
+        self.batch_export_btn.clicked.connect(self.batch_export)
+        bottom_layout.addWidget(self.batch_export_btn)
 
     def add_table_row(self, row_idx, data_item: dict):
         """
