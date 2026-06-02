@@ -267,6 +267,7 @@ def get_original_folder() -> str:
         wallpaper_dir.mkdir(parents=True, exist_ok=True)
     return str(wallpaper_dir)
 
+
 def get_file_metadata(file_path: str) -> dict:
     """
     获取指定文件的元数据
@@ -288,17 +289,16 @@ def get_file_metadata(file_path: str) -> dict:
         create_time = datetime.fromtimestamp(stat_info.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
         modify_time = datetime.fromtimestamp(stat_info.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
         access_time = datetime.fromtimestamp(stat_info.st_atime).strftime('%Y-%m-%d %H:%M:%S')
+
+        # 核心修复：在这里完整地把时间字段塞进字典中返回
         metadata = {
             "file_name": path.name,  # 文件名
             "file_size_bytes": stat_info.st_size,  # 文件大小 (字节)
-            "created_time": create_time,  # 创建时间
-            "modified_time": modify_time,  # 修改时间
-            "accessed_time": access_time,  # 最后访问时间
-            "is_file": path.is_file(),  # 是否为普通文件
-            "is_dir": path.is_dir(),  # 是否为文件夹
-            "absolute_path": str(path.resolve())  # 绝对路径
+            "create_time": create_time,  # 创建时间
+            "modify_time": modify_time,  # 修改时间
+            "access_time": access_time  # 访问时间
         }
         return metadata
     except Exception as e:
-        print(f"读取文件元数据时出错：{e}")
+        print(f"警告: 读取文件元数据失败 {file_path}, 错误原因: {str(e)}")
         return default_metadata

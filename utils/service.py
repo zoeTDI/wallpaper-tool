@@ -52,7 +52,7 @@ class WallpaperService:
             build_file_path = build_complete_path(json_path, wallpaper_obj.get('file'))
             wallpaper_obj['file'] = build_file_path
             metadata = get_file_metadata(build_file_path)
-
+            print(metadata)
             wallpaper_obj.update(metadata)
 
             self._raw_wallpapers.append(wallpaper_obj)

@@ -1,4 +1,5 @@
 import os.path
+import math
 from typing import List, Dict
 
 from PyQt5.QtGui import QPixmap, QColor
@@ -12,6 +13,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.table_widget = None
         self.service = WallpaperService()
         self.displayed_data: List[Dict] = []
 
@@ -110,14 +112,7 @@ class MainWindow(QMainWindow):
             return
         self.table_widget.setRowCount(len(self.displayed_data))
         for row_idx, data in enumerate(self.displayed_data):
-            self.add_table_row(
-                row_idx,
-                data.get('preview', ''),
-                data.get('title', 'Unknown'),
-                data.get('type', 'Unknown'),
-                data.get('contentrating', 'everyone'),
-                data.get('file', '')
-            )
+            self.add_table_row(row_idx, data)
 
     def init_middle_region(self, region_widget):
         """
@@ -162,6 +157,9 @@ class MainWindow(QMainWindow):
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
         self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
+        self.table_widget.horizontalHeader().setSectionsClickable(True)
+        self.table_widget.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
+        self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
 
@@ -181,66 +179,71 @@ class MainWindow(QMainWindow):
         mid_layout.addLayout(filter_layout)
         mid_layout.addWidget(self.table_widget)
 
-    def add_table_row(self, row_idx, preview_path, title, data_type, contentrating, file):
+    def add_table_row(self, row_idx, data_item: dict):
         """
-        向表格中动态插入一行的工具函数
+        根据列配置，向表格中动态插入一行的工具函数
         """
         if self.table_widget.rowCount() <= row_idx:
             self.table_widget.setRowCount(row_idx + 1)
 
-        img_label = QLabel()
-        img_label.setAlignment(Qt.AlignHCenter)
-        img_label.setStyleSheet("padding: 4px")
+            # 动态遍历来自 config.py 的配置
+        for col_idx, col_cfg in enumerate(self.config["table_columns"]):
+            key = col_cfg["key"]
+            formatter = col_cfg.get("formatter")
+            raw_val = data_item.get(key, '')
 
-        pixmap = QPixmap()
-        if preview_path and os.path.exists(preview_path) and pixmap.load(preview_path):
-            # 动态获取你在 config 中为第 0 列设置的宽度
-            column_width = self.table_widget.columnWidth(0)
+            # ====== 1. 预览图特殊控件渲染 ======
+            if formatter == "preview":
+                img_label = QLabel()
+                img_label.setAlignment(Qt.AlignCenter)
+                img_label.setStyleSheet("padding: 4px;")
+                pixmap = QPixmap()
+                if raw_val and os.path.exists(raw_val) and pixmap.load(raw_val):
+                    column_width = self.table_widget.columnWidth(col_idx)
+                    side_length = column_width - 8
+                    if side_length > 0:
+                        scaled_pixmap = pixmap.scaled(side_length, side_length, Qt.IgnoreAspectRatio,
+                                                      Qt.SmoothTransformation)
+                        img_label.setPixmap(scaled_pixmap)
+                        self.table_widget.setRowHeight(row_idx, column_width)
+                else:
+                    img_label.setText("无预览")
+                    img_label.setStyleSheet("color: #999999; font-size: 11px; padding: 4px;")
+                self.table_widget.setCellWidget(row_idx, col_idx, img_label)
 
-            padding_total = 8
-            side_length = column_width - padding_total
+            # ====== 2. 操作按钮特殊控件渲染 ======
+            elif formatter == "actions":
+                btn_container = QWidget()
+                btn_layout = QHBoxLayout(btn_container)
+                btn_layout.setContentsMargins(5, 2, 5, 2)
+                action_btn = QPushButton('导出', self)
+                title = data_item.get('title', 'Unknown')
+                file = data_item.get('file', '')
+                action_btn.clicked.connect(lambda checked, t=title, f=file: self.on_row_btn_clicked(t, f))
+                btn_layout.addWidget(action_btn)
+                self.table_widget.setCellWidget(row_idx, col_idx, btn_container)
 
-            if side_length > 0:
-                scaled_pixmap = pixmap.scaled(
-                    side_length,
-                    side_length,
-                    Qt.IgnoreAspectRatio,  # 强制 1:1 比例
-                    Qt.SmoothTransformation
-                )
-                img_label.setPixmap(scaled_pixmap)
+            # ====== 3. 统一处理所有标准文本（含各种常规元数据、时间、文件路径） ======
+            else:
+                display_text = self._get_display_text(formatter, raw_val)
+                table_item = QTableWidgetItem(display_text)
 
-                self.table_widget.setRowHeight(row_idx, column_width)
-        else:
-            img_label.setText("无预览")
-            img_label.setStyleSheet("color: #999999; font-size: 11px; padding: 4px;")
+                # 联动旧有逻辑：如果是名称列，初始化多选状态
+                if formatter == "title":
+                    table_item.setData(Qt.UserRole, False)
 
-        self.table_widget.setCellWidget(row_idx, 0, img_label)
-
-        name_item = QTableWidgetItem(title)
-        name_item.setData(Qt.UserRole, False)
-        self.table_widget.setItem(row_idx, 1, name_item)
-        self.table_widget.setItem(row_idx, 2, QTableWidgetItem(data_type))
-        self.table_widget.setItem(row_idx, 3, QTableWidgetItem(contentrating))
-        self.table_widget.setItem(row_idx, 4, QTableWidgetItem(file))
-
-        btn_container = QWidget()
-        btn_layout = QHBoxLayout(btn_container)
-        btn_layout.setContentsMargins(5, 2, 5, 2)
-
-        action_btn = QPushButton('导出', self)
-        action_btn.clicked.connect(lambda: self.on_row_btn_clicked(title, file))
-
-        btn_layout.addWidget(action_btn)
-        self.table_widget.setCellWidget(row_idx, 5, btn_container)
+                self.table_widget.setItem(row_idx, col_idx, table_item)
 
     def on_table_cell_clicked(self, row: int, column: int):
-        """
-        当用户点击表格的任意单元格时触发，实现点击整行即可切换勾选状态。
-        """
+        """点击整行隐藏式切换选中状态，并联动变色"""
         actions_col_idx = self.table_widget.columnCount() - 1
         if column == actions_col_idx:
             return
-        name_item = self.table_widget.item(row, 1)
+
+        # 动态获取名称列的实际位置索引
+        title_col_idx = self._get_column_index_by_key("title")
+        name_item = self.table_widget.item(row, title_col_idx)
+
         if name_item:
             current_state = name_item.data(Qt.UserRole)
             if current_state is None:
@@ -248,7 +251,6 @@ class MainWindow(QMainWindow):
 
             new_state = not current_state
             name_item.setData(Qt.UserRole, new_state)
-
             self._set_row_background_color(row, new_state)
 
     def on_row_btn_clicked(self, title, file):
@@ -273,12 +275,13 @@ class MainWindow(QMainWindow):
 
     def get_selected_wallpapers(self) -> List[dict]:
         """
-        便利表格，获取所有被用户勾选的数据
-        :return: 包含被勾选数据的列表
+        批量收集已被用户隐藏勾选的数据
         """
         selected_list = []
+        title_col_idx = self._get_column_index_by_key("title")
+
         for row_idx in range(self.table_widget.rowCount()):
-            item = self.table_widget.item(row_idx, 1)
+            item = self.table_widget.item(row_idx, title_col_idx)
             if item and item.data(Qt.UserRole) is True:
                 selected_list.append(self.displayed_data[row_idx])
         return selected_list
@@ -332,6 +335,34 @@ class MainWindow(QMainWindow):
             if reply == QMessageBox.Yes and target_folder:
                 os.startfile(target_folder)
 
+    def on_header_clicked(self, logical_index: int):
+        """
+        排序预留功能函数：当用户点击某一列的表头时触发
+        :param logical_index: 被点击列的索引
+        """
+        # 1. 提取当前被点击列的配置信息
+        columns_config = self.config["table_columns"]
+        if logical_index >= len(columns_config):
+            return
+
+        clicked_column = columns_config[logical_index]
+        column_key = clicked_column["key"]
+        column_label = clicked_column["label"]
+
+        # 2. 过滤掉不支持排序的列（例如预览图和操作按钮）
+        if column_key in ["preview", "actions"]:
+            print(f"列【{column_label}】不支持排序。")
+            return
+
+        # 3. 预留阶段提示与后续切入点
+        print(f"提示：用户点击了表头【{column_label}】(Key: {column_key})，触发排序预留逻辑。")
+
+        # 【TODO: 排序功能后续在此处实现】
+        # 这里的思路通常是：
+        # 1. 判断当前的排序状态（正序、倒序或交替切换）
+        # 2. 对自有的数据列表 `self.displayed_data` 进行重排：self.displayed_data.sort(key=lambda x: x.get(column_key))
+        # 3. 调用 `self.update_table_display()` 重新刷新表格渲染
+
     def _set_row_background_color(self, row: int, is_checked: bool):
         """
         根据勾选状态，动态改变整行的背景颜色
@@ -351,3 +382,53 @@ class MainWindow(QMainWindow):
             widget = self.table_widget.cellWidget(row, col)
             if widget:
                 widget.setStyleSheet(f"background-color: {color_hex};")
+
+    def _format_size(self, size_bytes: int) -> str:
+        """
+        将字节大小转换为更加人性化的单位展示
+        :param size_bytes: 字节大小
+        :return: 转换后的展示
+        """
+        if not size_bytes or size_bytes <= 0:
+            return "0 B"
+        size_name = ("B", "KB", "MB", "GB")
+        import math
+        i = int(math.floor(math.log(size_bytes, 1024)))
+        p = math.pow(1024, i)
+        s = round(size_bytes / p, 2)
+        return f"{s} {size_name[i]}"
+
+    def _get_display_text(self, formatter_type: str, raw_val: Any) -> str:
+        """
+        核心解耦：统一管理各种标准文本的格式化映射
+        """
+        if not raw_val and raw_val != 0:
+            return "未知" if formatter_type == "datetime" else ""
+
+        if formatter_type == "size":
+            return self._format_size(int(raw_val))
+
+        elif formatter_type == "age":
+            age_dict = {'everyone': '全年龄', 'questionable': '指导级', 'mature': '限制级'}
+            return age_dict.get(str(raw_val).lower(), str(raw_val))
+
+        elif formatter_type == "type":
+            type_dict = {'web': '网页', 'application': '应用', 'scene': '场景', 'video': '视频'}
+            return type_dict.get(str(raw_val).lower(), str(raw_val))
+
+        elif formatter_type == "datetime":
+            return str(raw_val)
+
+        return str(raw_val)
+
+    def _get_column_index_by_key(self, target_key: str) -> int:
+        """辅助方法：根据配置文件的 key 动态获取表格当前的列索引"""
+        for idx, col_cfg in enumerate(self.config["table_columns"]):
+            if col_cfg["key"] == target_key:
+                return idx
+        return 1  # 降级默认值
+
+
+
+
+
