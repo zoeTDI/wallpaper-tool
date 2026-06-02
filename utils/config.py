@@ -38,6 +38,6 @@ WALLPAPER_TOOL_CONFIG = {
         # 文件路径列：原先也是 stretch，现改为固定大宽度（如 300 或 400），或者允许手动拉伸
         {"key": "file", "label": "文件路径", "mode": "stretch", "width": None, "formatter": "title"},
 
-        {"key": "actions", "label": "操作", "mode": "interactive", "width": 100, "formatter": "actions"}
+        {"key": "actions", "label": "操作", "mode": "interactive", "width": 260, "formatter": "actions"}
     ]
 }

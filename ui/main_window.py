@@ -226,11 +226,36 @@ class MainWindow(QMainWindow):
                 btn_container = QWidget()
                 btn_layout = QHBoxLayout(btn_container)
                 btn_layout.setContentsMargins(5, 2, 5, 2)
-                action_btn = QPushButton('导出', self)
+                btn_layout.setSpacing(6)  # 按钮之间的间距
+
                 title = data_item.get('title', 'Unknown')
-                file = data_item.get('file', '')
-                action_btn.clicked.connect(lambda checked, t=title, f=file: self.on_row_btn_clicked(t, f))
-                btn_layout.addWidget(action_btn)
+                file_path = data_item.get('file', '')
+                wallpaper_type = str(data_item.get('type', '')).lower()
+
+                # 按钮 1：导出
+                export_btn = QPushButton('导出', self)
+                export_btn.clicked.connect(lambda checked, t=title, f=file_path: self.on_row_btn_clicked(t, f))
+                btn_layout.addWidget(export_btn)
+
+                # 按钮 2：打开文件位置 (默认选中文件)
+                locate_btn = QPushButton('打开位置', self)
+                locate_btn.clicked.connect(lambda checked, f=file_path: self.on_locate_btn_clicked(f))
+                btn_layout.addWidget(locate_btn)
+
+                # 按钮 3：打开文件 (仅限视频和网页)
+                open_btn = QPushButton('打开文件', self)
+                open_btn.clicked.connect(lambda checked, f=file_path: self.on_open_file_btn_clicked(f))
+
+                # 核心控制：根据文件类型启用/禁用
+                if wallpaper_type in ['video', 'web']:
+                    open_btn.setEnabled(True)
+                    open_btn.setToolTip("调用系统默认应用打开该壁纸")
+                else:
+                    open_btn.setEnabled(False)
+                    open_btn.setToolTip("该类型壁纸不支持直接打开")
+
+                btn_layout.addWidget(open_btn)
+
                 self.table_widget.setCellWidget(row_idx, col_idx, btn_container)
 
             # ====== 3. 统一处理所有标准文本（含各种常规元数据、时间、文件路径） ======
@@ -282,6 +307,37 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, '错误', f'导出失败：{str(e)}')
         finally:
             progress.close()
+
+    def on_locate_btn_clicked(self, file_path: str):
+        """
+        槽函数：打开文件所在系统目录，并默认高亮选中该文件
+        """
+        if not file_path or not os.path.exists(file_path):
+            QMessageBox.warning(self, "提示", "壁纸文件路径不存在，无法定位！")
+            return
+
+        import subprocess
+        # Windows 标准安全路径转换，将斜杠转为反斜杠
+        norm_path = os.path.normpath(file_path)
+        try:
+            # 使用 explorer.exe /select, 可以在打开文件夹的同时高亮对应的文件
+            subprocess.run(['explorer', '/select,', norm_path], check=False)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"无法打开文件位置: {str(e)}")
+
+    def on_open_file_btn_clicked(self, file_path: str):
+        """
+        槽函数：调用系统默认关联程序打开对应的视频或网页文件
+        """
+        if not file_path or not os.path.exists(file_path):
+            QMessageBox.warning(self, "提示", "壁纸文件不存在，无法打开！")
+            return
+
+        try:
+            # os.startfile 是 Windows 专属的强力 API，效果等同于双击该文件
+            os.startfile(file_path)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"调用外部程序打开文件失败: {str(e)}")
 
     def get_selected_wallpapers(self) -> List[dict]:
         """
