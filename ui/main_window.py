@@ -112,9 +112,17 @@ class MainWindow(QMainWindow):
         self.table_widget.setRowCount(0)
         if not self.displayed_data:
             return
+
         self.table_widget.setRowCount(len(self.displayed_data))
         for row_idx, data in enumerate(self.displayed_data):
             self.add_table_row(row_idx, data)
+
+        title_idx = self._get_column_index_by_key("title")
+        for row_idx in range(self.table_widget.rowCount()):
+            title_item = self.table_widget.item(row_idx, title_idx)
+            if title_item:
+                is_checked = title_item.data(Qt.UserRole) is True
+                self._set_row_background_color(row_idx, is_checked)
 
     def init_middle_region(self, region_widget):
         """
