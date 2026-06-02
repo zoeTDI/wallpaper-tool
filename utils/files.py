@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import platform
 import shutil
@@ -265,3 +266,39 @@ def get_original_folder() -> str:
     if not wallpaper_dir.exists():
         wallpaper_dir.mkdir(parents=True, exist_ok=True)
     return str(wallpaper_dir)
+
+def get_file_metadata(file_path: str) -> dict:
+    """
+    获取指定文件的元数据
+    :param file_path: 文件路径
+    :return: 文件的元数据，若文件不存在则返回空字典
+    """
+    path = Path(file_path)
+    default_metadata = {
+        "file_name": path.name if file_path else "未知文件",
+        "file_size_bytes": 0,  # 文件大小默认为 0 字节
+        "create_time": "未知时间",
+        "modify_time": "未知时间",  # 核心：排序所需字段
+        "access_time": "未知时间"
+    }
+    if not path.exists():
+        return default_metadata
+    try:
+        stat_info = path.stat()
+        create_time = datetime.fromtimestamp(stat_info.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+        modify_time = datetime.fromtimestamp(stat_info.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        access_time = datetime.fromtimestamp(stat_info.st_atime).strftime('%Y-%m-%d %H:%M:%S')
+        metadata = {
+            "file_name": path.name,  # 文件名
+            "file_size_bytes": stat_info.st_size,  # 文件大小 (字节)
+            "created_time": create_time,  # 创建时间
+            "modified_time": modify_time,  # 修改时间
+            "accessed_time": access_time,  # 最后访问时间
+            "is_file": path.is_file(),  # 是否为普通文件
+            "is_dir": path.is_dir(),  # 是否为文件夹
+            "absolute_path": str(path.resolve())  # 绝对路径
+        }
+        return metadata
+    except Exception as e:
+        print(f"读取文件元数据时出错：{e}")
+        return default_metadata
