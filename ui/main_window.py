@@ -2,7 +2,7 @@ import math
 import os.path
 from typing import List, Dict, Any
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QColor
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -23,8 +23,9 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 
+from config import app_config
 from config.schemas import AppConfig, BaseFilter
-from services.service import WallpaperService
+from services import WallpaperService
 
 
 def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
@@ -33,7 +34,8 @@ def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
         return
     for option in config.options:
         combo.addItem(option.label, option.value)
-    combo.setCurrentText(config.default)
+    combo.setCurrentIndex(config.default)
+
     combo.setMinimumWidth(minimun_width)
 
 
@@ -45,10 +47,10 @@ class MainWindow(QMainWindow):
         self.service = WallpaperService()
         self.displayed_data: List[Dict] = []
 
-        self.config: AppConfig = self.service.get_config()
+        self.config: AppConfig = app_config
         # top
-        self.path_input = QLineEdit(self)
-        self.scan_btn = QPushButton("扫描", self)
+        self.path_input = None
+        self.scan_btn = None
         # middle
         self.type_filter_combo = None
         self.age_filter_combo = None
@@ -61,6 +63,30 @@ class MainWindow(QMainWindow):
         self.is_ascending = True  # True 为升序(正序)，False 为降序(倒序)
 
         self.init_ui()
+        QTimer.singleShot(0, self.auto_scan_on_startup)
+
+    def auto_scan_on_startup(self) -> None:
+        """
+        启动时自动尝试扫描默认路径
+        """
+        default_path = self.config.path.scan_path
+        if (
+            type(default_path) is str
+            and default_path != ""
+            and os.path.exists(default_path)
+        ):
+            self.path_input.setText(default_path)
+            try:
+                self.service.base.scan(default_path)
+                self.displayed_data = self.service.base.data
+                if type(self.displayed_data) is list and len(self.displayed_data) > 0:
+                    self.filter_wallpapers()
+                else:
+                    self.displayed_data = []
+                    self.path_input.setText("")
+                    print(f"[info] 路径 {default_path} 下未扫描到壁纸数据。")
+            except Exception as e:
+                print(f"[error] 启动自动扫描失败: {e}")
 
     def init_ui(self):
         self.setWindowTitle("Wallpaper Tool")
@@ -100,6 +126,7 @@ class MainWindow(QMainWindow):
     def init_top_region(self, region_widget):
         layout = QHBoxLayout(region_widget)
         # label 文件
+        self.path_input = QLineEdit(self)
         path_label = QLabel("Wallpaper Engine 文件夹路径：", self)
         # 只读输入框
         self.path_input.setReadOnly(True)
@@ -110,6 +137,7 @@ class MainWindow(QMainWindow):
         browse_btn.clicked.connect(self.select_folder)
 
         # 扫描按钮
+        self.scan_btn = QPushButton("扫描", self)
         self.scan_btn.clicked.connect(self.scan_wallpaper_dir)
         self.scan_btn.setEnabled(False)
 
@@ -130,13 +158,17 @@ class MainWindow(QMainWindow):
 
     def scan_wallpaper_dir(self):
         dir_path = self.path_input.text().strip()
-        self.displayed_data = self.service.scan_directory(dir_path)
+        # self.displayed_data = self.service.scan_directory(dir_path)
+        self.service.base.scan(dir_path)
+        self.displayed_data = self.service.base.data
         self.filter_wallpapers()
 
     def filter_wallpapers(self):
         selected_type = self.type_filter_combo.currentData()
         selected_age = self.age_filter_combo.currentData()
-        self.displayed_data = self.service.filter_data(selected_type, selected_age)
+        self.displayed_data = self.service.filter.execute(
+            self.service.base.data, selected_type, selected_age
+        )
         self.update_table_display()
 
     def update_table_display(self):
@@ -271,7 +303,6 @@ class MainWindow(QMainWindow):
 
             # 动态遍历来自 config.py 的配置
         for index, col in enumerate(self.config.table.columns):
-            # todo 2
             key = col.key
             formatter = col.formatter
             raw_val = data_item.get(key, "")
@@ -386,7 +417,7 @@ class MainWindow(QMainWindow):
         try:
             progress.setValue(30)
             QApplication.processEvents()
-            target_folder = self.service.export_single_wallpaper(title, file)
+            target_folder = self.service.exporter.export(title, file)
             progress.setValue(100)
             QMessageBox.information(self, "成功", f"壁纸【{title}】已成功导出")
         except Exception as e:
@@ -462,7 +493,7 @@ class MainWindow(QMainWindow):
             progress.setLabelText(f"正在导出 ({idx + 1}/{total_files}):\n{title}")
             QApplication.processEvents()
             try:
-                target_folder = self.service.export_single_wallpaper(title, file)
+                target_folder = self.service.exporter.export(title, file)
                 success_count += 1
             except Exception as row_error:
                 error_msgs.append(f"【{title}】导出失败: {str(row_error)}")
