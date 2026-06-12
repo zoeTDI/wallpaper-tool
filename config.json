@@ -5,7 +5,7 @@
   "filter_config": {
     "type": {
       "label": "文件类型",
-      "default": "video",
+      "default": 4,
       "options": [
         {
           "label": "全部",
@@ -31,7 +31,7 @@
     },
     "age": {
       "label": "年龄限制",
-      "default": "mature",
+      "default": 3,
       "options": [
         {
           "label": "全部",
