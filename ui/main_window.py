@@ -1,12 +1,41 @@
+import math
 import os.path
-from typing import List, Dict
+from typing import List, Dict, Any
 
-from PyQt5.QtGui import QPixmap, QColor
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QFrame, QLabel, QHBoxLayout, QLineEdit, \
-    QPushButton, QFileDialog, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QProgressDialog, QApplication, \
-    QMessageBox
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QColor
+from PyQt5.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QFrame,
+    QLabel,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QFileDialog,
+    QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QProgressDialog,
+    QApplication,
+    QMessageBox,
+)
+
+from config.schemas import AppConfig, BaseFilter
 from utils.service import WallpaperService
+
+
+def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
+    if (combo is None) or (config is None):
+        print(f"[error] 缺少必要信息，无法创建筛选器组件")
+        return
+    for option in config.options:
+        combo.addItem(option.label, option.value)
+    combo.setCurrentText(config.default)
+    combo.setMinimumWidth(minimun_width)
+
 
 class MainWindow(QMainWindow):
 
@@ -16,7 +45,17 @@ class MainWindow(QMainWindow):
         self.service = WallpaperService()
         self.displayed_data: List[Dict] = []
 
-        self.config = self.service.get_config()
+        self.config: AppConfig = self.service.get_config()
+        # top
+        self.path_input = QLineEdit(self)
+        self.scan_btn = QPushButton("扫描", self)
+        # middle
+        self.type_filter_combo = None
+        self.age_filter_combo = None
+        # bottom
+        self.select_all_btn = None
+        self.clear_all_btn = None
+        self.batch_export_btn = None
 
         self.current_sort_key = None  # 当前排序的字段 key
         self.is_ascending = True  # True 为升序(正序)，False 为降序(倒序)
@@ -24,7 +63,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle('Wallpaper Tool')
+        self.setWindowTitle("Wallpaper Tool")
         self.resize(1000, 800)
         # 最小窗口大小
         self.setMinimumSize(400, 300)
@@ -61,18 +100,16 @@ class MainWindow(QMainWindow):
     def init_top_region(self, region_widget):
         layout = QHBoxLayout(region_widget)
         # label 文件
-        path_label = QLabel('Wallpaper Engine 文件夹路径：', self)
+        path_label = QLabel("Wallpaper Engine 文件夹路径：", self)
         # 只读输入框
-        self.path_input = QLineEdit(self)
         self.path_input.setReadOnly(True)
-        self.path_input.setPlaceholderText('请选择或指定 Wallpaper Engine 文件夹...')
+        self.path_input.setPlaceholderText("请选择或指定 Wallpaper Engine 文件夹...")
         self.path_input.textChanged.connect(self.check_input_content)
         # 浏览按钮
-        browse_btn = QPushButton('浏览', self)
+        browse_btn = QPushButton("浏览", self)
         browse_btn.clicked.connect(self.select_folder)
 
         # 扫描按钮
-        self.scan_btn = QPushButton('扫描', self)
         self.scan_btn.clicked.connect(self.scan_wallpaper_dir)
         self.scan_btn.setEnabled(False)
 
@@ -82,8 +119,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.scan_btn)
 
     def select_folder(self):
-        default_path = r'C:\Program Files (x86)\Steam\steamapps\workshop\content\431960'
-        selected_dir = QFileDialog.getExistingDirectory(self, '选择 Wallpaper Engine 文件夹', default_path)
+        selected_dir = QFileDialog.getExistingDirectory(
+            self, "选择 Wallpaper Engine 文件夹", self.config.path.scan_path
+        )
         if selected_dir:
             self.path_input.setText(os.path.normpath(selected_dir))
 
@@ -96,8 +134,8 @@ class MainWindow(QMainWindow):
         self.filter_wallpapers()
 
     def filter_wallpapers(self):
-        selected_type = self.type_filter_combo.currentText()
-        selected_age = self.age_filter_combo.currentText()
+        selected_type = self.type_filter_combo.currentData()
+        selected_age = self.age_filter_combo.currentData()
         self.displayed_data = self.service.filter_data(selected_type, selected_age)
         self.update_table_display()
 
@@ -126,21 +164,18 @@ class MainWindow(QMainWindow):
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(8)
 
-        type_cfg = self.config['filters']['type']
-        type_filter_label = QLabel(type_cfg['label'], self)
+        # todo 3
         self.type_filter_combo = QComboBox(self)
-        self.type_filter_combo.addItems(type_cfg["options"])
-        self.type_filter_combo.setCurrentText(type_cfg["default"])
-        self.type_filter_combo.setMinimumWidth(80)
+        type_cfg = self.config.filter.type_filter
+        type_filter_label = QLabel(type_cfg.label, self)
+        create_filter(self.type_filter_combo, type_cfg)
 
-        age_cfg = self.config["filters"]["age"]
-        age_filter_label = QLabel(age_cfg["label"], self)
         self.age_filter_combo = QComboBox(self)
-        self.age_filter_combo.addItems(age_cfg["options"])
-        self.age_filter_combo.setCurrentText(age_cfg["default"])
-        self.age_filter_combo.setMinimumWidth(80)
+        age_cfg = self.config.filter.age_filter
+        age_filter_label = QLabel(age_cfg.label, self)
+        create_filter(self.age_filter_combo, age_cfg)
 
-        filter_btn = QPushButton('筛选', self)
+        filter_btn = QPushButton("筛选", self)
         filter_btn.setFixedSize(70, 26)
         filter_btn.clicked.connect(self.filter_wallpapers)
 
@@ -152,15 +187,17 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(filter_btn)
         filter_layout.addStretch()
 
-        columns_config = self.config["table_columns"]
-        table_labels = [col["label"] for col in columns_config]
+        columns_config = self.config.table.columns
+        table_labels = [col.label for col in columns_config]
 
         self.table_widget = QTableWidget(self)
         self.table_widget.verticalHeader().setDefaultSectionSize(55)
         self.table_widget.setColumnCount(len(table_labels))
         self.table_widget.setHorizontalHeaderLabels(table_labels)
         self.table_widget.horizontalHeader().setSectionsClickable(True)
-        self.table_widget.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
+        self.table_widget.horizontalHeader().sectionClicked.connect(
+            self.on_header_clicked
+        )
         self.table_widget.cellClicked.connect(self.on_table_cell_clicked)
         # 最后一列自适应
         header = self.table_widget.horizontalHeader()
@@ -168,15 +205,15 @@ class MainWindow(QMainWindow):
         header.setStretchLastSection(False)
 
         for idx, col in enumerate(columns_config):
-            mode = col["mode"]
+            mode = col.mode
             if mode == "stretch":
                 header.setSectionResizeMode(idx, QHeaderView.Stretch)
             elif mode == "contents":
                 header.setSectionResizeMode(idx, QHeaderView.ResizeToContents)
             elif mode == "interactive":
                 header.setSectionResizeMode(idx, QHeaderView.Interactive)
-                if col["width"]:
-                    self.table_widget.setColumnWidth(idx, col["width"])
+                if (type(col.width) is int) and (col.width > 0):
+                    self.table_widget.setColumnWidth(idx, col.width)
 
         mid_layout.addLayout(filter_layout)
         mid_layout.addWidget(self.table_widget)
@@ -189,20 +226,20 @@ class MainWindow(QMainWindow):
         bottom_layout.setContentsMargins(10, 5, 10, 5)
 
         # 新增：全选按钮
-        self.select_all_btn = QPushButton('全选', self)
+        self.select_all_btn = QPushButton("全选", self)
         self.select_all_btn.setFixedSize(80, 35)
         self.select_all_btn.clicked.connect(lambda: self.set_all_rows_selection(True))
         bottom_layout.addWidget(self.select_all_btn)
 
         # 新增：清空全选按钮
-        self.clear_all_btn = QPushButton('清空全选', self)
+        self.clear_all_btn = QPushButton("清空全选", self)
         self.clear_all_btn.setFixedSize(80, 35)
         self.clear_all_btn.clicked.connect(lambda: self.set_all_rows_selection(False))
         bottom_layout.addWidget(self.clear_all_btn)
 
         bottom_layout.addStretch()
 
-        self.batch_export_btn = QPushButton('批量导出', self)
+        self.batch_export_btn = QPushButton("批量导出", self)
         self.batch_export_btn.setFixedSize(120, 35)
         self.batch_export_btn.clicked.connect(self.batch_export)
         bottom_layout.addWidget(self.batch_export_btn)
@@ -233,10 +270,11 @@ class MainWindow(QMainWindow):
             self.table_widget.setRowCount(row_idx + 1)
 
             # 动态遍历来自 config.py 的配置
-        for col_idx, col_cfg in enumerate(self.config["table_columns"]):
-            key = col_cfg["key"]
-            formatter = col_cfg.get("formatter")
-            raw_val = data_item.get(key, '')
+        for index, col in enumerate(self.config.table.columns):
+            # todo 2
+            key = col.key
+            formatter = col.formatter
+            raw_val = data_item.get(key, "")
 
             # ====== 1. 预览图特殊控件渲染 ======
             if formatter == "preview":
@@ -245,17 +283,23 @@ class MainWindow(QMainWindow):
                 img_label.setStyleSheet("padding: 4px;")
                 pixmap = QPixmap()
                 if raw_val and os.path.exists(raw_val) and pixmap.load(raw_val):
-                    column_width = self.table_widget.columnWidth(col_idx)
+                    column_width = self.table_widget.columnWidth(index)
                     side_length = column_width - 8
                     if side_length > 0:
-                        scaled_pixmap = pixmap.scaled(side_length, side_length, Qt.IgnoreAspectRatio,
-                                                      Qt.SmoothTransformation)
+                        scaled_pixmap = pixmap.scaled(
+                            side_length,
+                            side_length,
+                            Qt.IgnoreAspectRatio,
+                            Qt.SmoothTransformation,
+                        )
                         img_label.setPixmap(scaled_pixmap)
                         self.table_widget.setRowHeight(row_idx, column_width)
                 else:
                     img_label.setText("无预览")
-                    img_label.setStyleSheet("color: #999999; font-size: 11px; padding: 4px;")
-                self.table_widget.setCellWidget(row_idx, col_idx, img_label)
+                    img_label.setStyleSheet(
+                        "color: #999999; font-size: 11px; padding: 4px;"
+                    )
+                self.table_widget.setCellWidget(row_idx, index, img_label)
 
             # ====== 2. 操作按钮特殊控件渲染 ======
             elif formatter == "actions":
@@ -264,26 +308,32 @@ class MainWindow(QMainWindow):
                 btn_layout.setContentsMargins(5, 2, 5, 2)
                 btn_layout.setSpacing(6)  # 按钮之间的间距
 
-                title = data_item.get('title', 'Unknown')
-                file_path = data_item.get('file', '')
-                wallpaper_type = str(data_item.get('type', '')).lower()
+                title = data_item.get("title", "Unknown")
+                file_path = data_item.get("file", "")
+                wallpaper_type = str(data_item.get("type", "")).lower()
 
                 # 按钮 1：导出
-                export_btn = QPushButton('导出', self)
-                export_btn.clicked.connect(lambda checked, t=title, f=file_path: self.on_row_btn_clicked(t, f))
+                export_btn = QPushButton("导出", self)
+                export_btn.clicked.connect(
+                    lambda checked, t=title, f=file_path: self.on_row_btn_clicked(t, f)
+                )
                 btn_layout.addWidget(export_btn)
 
                 # 按钮 2：打开文件位置 (默认选中文件)
-                locate_btn = QPushButton('打开位置', self)
-                locate_btn.clicked.connect(lambda checked, f=file_path: self.on_locate_btn_clicked(f))
+                locate_btn = QPushButton("打开位置", self)
+                locate_btn.clicked.connect(
+                    lambda checked, f=file_path: self.on_locate_btn_clicked(f)
+                )
                 btn_layout.addWidget(locate_btn)
 
                 # 按钮 3：打开文件 (仅限视频和网页)
-                open_btn = QPushButton('打开文件', self)
-                open_btn.clicked.connect(lambda checked, f=file_path: self.on_open_file_btn_clicked(f))
+                open_btn = QPushButton("打开文件", self)
+                open_btn.clicked.connect(
+                    lambda checked, f=file_path: self.on_open_file_btn_clicked(f)
+                )
 
                 # 核心控制：根据文件类型启用/禁用
-                if wallpaper_type in ['video', 'web']:
+                if wallpaper_type in ["video", "web"]:
                     open_btn.setEnabled(True)
                     open_btn.setToolTip("调用系统默认应用打开该壁纸")
                 else:
@@ -292,7 +342,7 @@ class MainWindow(QMainWindow):
 
                 btn_layout.addWidget(open_btn)
 
-                self.table_widget.setCellWidget(row_idx, col_idx, btn_container)
+                self.table_widget.setCellWidget(row_idx, index, btn_container)
 
             # ====== 3. 统一处理所有标准文本（含各种常规元数据、时间、文件路径） ======
             else:
@@ -303,7 +353,7 @@ class MainWindow(QMainWindow):
                 if formatter == "title":
                     table_item.setData(Qt.UserRole, False)
 
-                self.table_widget.setItem(row_idx, col_idx, table_item)
+                self.table_widget.setItem(row_idx, index, table_item)
 
     def on_table_cell_clicked(self, row: int, column: int):
         """点击整行隐藏式切换选中状态，并联动变色"""
@@ -338,9 +388,9 @@ class MainWindow(QMainWindow):
             QApplication.processEvents()
             target_folder = self.service.export_single_wallpaper(title, file)
             progress.setValue(100)
-            QMessageBox.information(self, '成功', f'壁纸【{title}】已成功导出')
+            QMessageBox.information(self, "成功", f"壁纸【{title}】已成功导出")
         except Exception as e:
-            QMessageBox.critical(self, '错误', f'导出失败：{str(e)}')
+            QMessageBox.critical(self, "错误", f"导出失败：{str(e)}")
         finally:
             progress.close()
 
@@ -353,11 +403,12 @@ class MainWindow(QMainWindow):
             return
 
         import subprocess
+
         # Windows 标准安全路径转换，将斜杠转为反斜杠
         norm_path = os.path.normpath(file_path)
         try:
             # 使用 explorer.exe /select, 可以在打开文件夹的同时高亮对应的文件
-            subprocess.run(['explorer', '/select,', norm_path], check=False)
+            subprocess.run(["explorer", "/select,", norm_path], check=False)
         except Exception as e:
             QMessageBox.critical(self, "错误", f"无法打开文件位置: {str(e)}")
 
@@ -391,7 +442,7 @@ class MainWindow(QMainWindow):
     def batch_export(self):
         selected_wallpapers = self.get_selected_wallpapers()
         if not selected_wallpapers:
-            QMessageBox.warning(self, '提示', '请先在表格中勾选需要导出的壁纸！')
+            QMessageBox.warning(self, "提示", "请先在表格中勾选需要导出的壁纸！")
             return
 
         total_files = len(selected_wallpapers)
@@ -406,8 +457,8 @@ class MainWindow(QMainWindow):
         target_folder = None
 
         for idx, wallpaper in enumerate(selected_wallpapers):
-            title = wallpaper.get('title', '未命名壁纸')
-            file = wallpaper.get('file')
+            title = wallpaper.get("title", "未命名壁纸")
+            file = wallpaper.get("file")
             progress.setLabelText(f"正在导出 ({idx + 1}/{total_files}):\n{title}")
             QApplication.processEvents()
             try:
@@ -422,17 +473,23 @@ class MainWindow(QMainWindow):
         if error_count == 0:
             reply = QMessageBox.question(
                 self,
-                '成功',
+                "成功",
                 f"全部壁纸已成功导出！\n共成功导出 {success_count} 个文件。\n\n是否立刻打开目标文件夹？",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
             )
             if reply == QMessageBox.Yes and target_folder:
                 os.startfile(target_folder)
         else:
-            detailed_error = "\n".join(error_msgs[:5]) + ("\n...等多项错误" if error_count > 5 else "")
+            detailed_error = "\n".join(error_msgs[:5]) + (
+                "\n...等多项错误" if error_count > 5 else ""
+            )
             reply = QMessageBox.question(
-                self, '批量导出完成', f"批量导出结束（存在部分失败）：\n成功: {success_count} 个\n失败: {error_count} 个\n\n是否打开目标文件夹查看已成功的文件？",
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+                self,
+                "批量导出完成",
+                f"批量导出结束（存在部分失败）：\n成功: {success_count} 个\n失败: {error_count} 个\n\n是否打开目标文件夹查看已成功的文件？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
             )
             if reply == QMessageBox.Yes and target_folder:
                 os.startfile(target_folder)
@@ -442,14 +499,15 @@ class MainWindow(QMainWindow):
         排序预留功能函数：当用户点击某一列的表头时触发
         :param logical_index: 被点击列的索引
         """
-        columns_config = self.config["table_columns"]
+        columns_config = self.config.table.columns
         if logical_index >= len(columns_config):
             return
 
+        # todo 4
         clicked_column = columns_config[logical_index]
-        column_key = clicked_column["key"]
-        column_label = clicked_column["label"]
-        formatter = clicked_column.get("formatter")
+        column_key = clicked_column.key
+        column_label = clicked_column.label
+        formatter = clicked_column.formatter
 
         # 1. 过滤掉不支持排序的列
         if formatter in ["preview", "actions"]:
@@ -463,11 +521,9 @@ class MainWindow(QMainWindow):
             self.current_sort_key = column_key
             self.is_ascending = False
 
-        print(f"正在对【{column_label}】进行排序，方向: {'升序' if self.is_ascending else '降序'}")
-
         # 3. 核心排序算法
         def sort_key_provider(item: dict):
-            val = item.get(column_key, '')
+            val = item.get(column_key, "")
             if column_key == "file_size_bytes":
                 try:
                     return int(val) if val else 0
@@ -481,14 +537,18 @@ class MainWindow(QMainWindow):
         # 4. ====== 核心优化：动态更新表头箭头提示 ======
         header = self.table_widget.horizontalHeader()
         for idx, col_cfg in enumerate(columns_config):
-            original_label = col_cfg["label"]
+            original_label = col_cfg.label
             # 如果是当前排序的列，根据正倒序添加对应的箭头后缀
-            if col_cfg["key"] == self.current_sort_key:
+            if col_cfg.key == self.current_sort_key:
                 arrow = " ▲" if self.is_ascending else " ▼"
-                self.table_widget.setHorizontalHeaderItem(idx, QTableWidgetItem(original_label + arrow))
+                self.table_widget.setHorizontalHeaderItem(
+                    idx, QTableWidgetItem(original_label + arrow)
+                )
             else:
                 # 其他列一律还原为最原始的无箭头标签
-                self.table_widget.setHorizontalHeaderItem(idx, QTableWidgetItem(original_label))
+                self.table_widget.setHorizontalHeaderItem(
+                    idx, QTableWidgetItem(original_label)
+                )
 
         # 5. 重新刷新界面表格渲染
         self.update_table_display()
@@ -501,7 +561,9 @@ class MainWindow(QMainWindow):
         :return: None
         """
         color_hex = "#E6F3FF" if is_checked else "#FFFFFF"
-        qcolor = Qt.GlobalColor.white if not is_checked else QColor("#E6F3FF")  # 如果报错QColor未引入，可以用下面的样式表方案，更稳妥
+        # qcolor = (
+        #     Qt.GlobalColor.white if not is_checked else QColor("#E6F3FF")
+        # )  # 如果报错QColor未引入，可以用下面的样式表方案，更稳妥
 
         # 遍历该行的所有列
         for col in range(self.table_widget.columnCount()):
@@ -522,7 +584,7 @@ class MainWindow(QMainWindow):
         if not size_bytes or size_bytes <= 0:
             return "0 B"
         size_name = ("B", "KB", "MB", "GB")
-        import math
+
         i = int(math.floor(math.log(size_bytes, 1024)))
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
@@ -539,11 +601,20 @@ class MainWindow(QMainWindow):
             return self._format_size(int(raw_val))
 
         elif formatter_type == "age":
-            age_dict = {'everyone': '全年龄', 'questionable': '指导级', 'mature': '限制级'}
+            age_dict = {
+                "everyone": "全年龄",
+                "questionable": "指导级",
+                "mature": "限制级",
+            }
             return age_dict.get(str(raw_val).lower(), str(raw_val))
 
         elif formatter_type == "type":
-            type_dict = {'web': '网页', 'application': '应用', 'scene': '场景', 'video': '视频'}
+            type_dict = {
+                "web": "网页",
+                "application": "应用",
+                "scene": "场景",
+                "video": "视频",
+            }
             return type_dict.get(str(raw_val).lower(), str(raw_val))
 
         elif formatter_type == "datetime":
@@ -553,12 +624,9 @@ class MainWindow(QMainWindow):
 
     def _get_column_index_by_key(self, target_key: str) -> int:
         """辅助方法：根据配置文件的 key 动态获取表格当前的列索引"""
-        for idx, col_cfg in enumerate(self.config["table_columns"]):
-            if col_cfg["key"] == target_key:
-                return idx
-        return 1  # 降级默认值
 
-
-
-
-
+        for index, col in enumerate(self.config.table.columns):
+            # todo 1
+            if col.key == target_key:
+                return index
+        return 1

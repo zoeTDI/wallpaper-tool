@@ -2,21 +2,32 @@ import copy
 import os.path
 from typing import List, Dict, Any
 
-from utils.files import get_direct_subfolders_pathlib, find_file_case_insensitive, build_complete_path, \
-    get_original_folder, copy_file_to_folder, sanitize_filename, limit_filename_length, rename_file_keep_ext, \
-    get_file_metadata
+from config import app_config
+from config.schemas import AppConfig
+from utils.files import (
+    get_direct_subfolders_pathlib,
+    find_file_case_insensitive,
+    build_complete_path,
+    get_original_folder,
+    copy_file_to_folder,
+    sanitize_filename,
+    limit_filename_length,
+    rename_file_keep_ext,
+    get_file_metadata,
+)
 from utils.parse import parse_json_to_dict
-from utils.config import WALLPAPER_TOOL_CONFIG
+
 
 class WallpaperService:
     """
     专门处理壁纸数据的业务逻辑类
     """
+
     def __init__(self):
         self._raw_wallpapers: List[Dict[str, Any]] = []
-        self.config = WALLPAPER_TOOL_CONFIG
+        self.config = app_config
 
-    def get_config(self)->Dict[str, Any]:
+    def get_config(self) -> AppConfig:
         """
         为UI层提供配置数据
         :return: 配置数据
@@ -34,7 +45,7 @@ class WallpaperService:
             return self._raw_wallpapers
         sub_folders = get_direct_subfolders_pathlib(dir_path)
         for folder in sub_folders:
-            json_path = find_file_case_insensitive('project.json', folder)
+            json_path = find_file_case_insensitive("project.json", folder)
             if not json_path:
                 continue
 
@@ -42,23 +53,24 @@ class WallpaperService:
             if not wallpaper_obj:
                 continue
 
-            preview_filename = wallpaper_obj.get('preview')
+            preview_filename = wallpaper_obj.get("preview")
             if preview_filename:
                 build_preview_path = build_complete_path(json_path, preview_filename)
-                wallpaper_obj['preview'] = build_preview_path
+                wallpaper_obj["preview"] = build_preview_path
             else:
-                wallpaper_obj['preview'] = ''
+                wallpaper_obj["preview"] = ""
 
-            build_file_path = build_complete_path(json_path, wallpaper_obj.get('file'))
-            wallpaper_obj['file'] = build_file_path
+            build_file_path = build_complete_path(json_path, wallpaper_obj.get("file"))
+            wallpaper_obj["file"] = build_file_path
             metadata = get_file_metadata(build_file_path)
-            print(metadata)
             wallpaper_obj.update(metadata)
 
             self._raw_wallpapers.append(wallpaper_obj)
         return copy.deepcopy(self._raw_wallpapers)
 
-    def filter_data(self, selected_type: str, selected_age: str) -> List[Dict[str, Any]]:
+    def filter_data(
+        self, selected_type: str, selected_age: str
+    ) -> List[Dict[str, Any]]:
         """
         数据筛选
         :param selected_type: 选择的类型的值
@@ -67,19 +79,18 @@ class WallpaperService:
         """
         if not self._raw_wallpapers:
             return []
-        if selected_type == '全部' and selected_age == '全部':
+        type_pass_value = self.config.filter.type_filter.options[0].value
+        age_pass_value = self.config.filter.age_filter.options[0].value
+        if selected_type == type_pass_value and selected_age == age_pass_value:
             return copy.deepcopy(self._raw_wallpapers)
-
-        type_dict = {'web': '网页', 'application': '应用', 'scene': '场景', 'video': '视频'}
-        age_dict = {'everyone': '全年龄', 'questionable': '指导级', 'mature': '限制级'}
 
         filter_result = []
         for item in self._raw_wallpapers:
-            item_type = str(item.get('type', '')).lower()
-            item_age = str(item.get('contentrating', '')).lower()
+            item_type = str(item.get("type", "")).lower()
+            item_age = str(item.get("contentrating", "")).lower()
 
-            match_type = (selected_type == '全部' or type_dict.get(item_type) == selected_type)
-            match_age = (selected_age == '全部' or age_dict.get(item_age) == selected_age)
+            match_type = selected_type == type_pass_value or selected_type == item_type
+            match_age = selected_age == age_pass_value or selected_age == item_age
 
             if match_type and match_age:
                 filter_result.append(item)
