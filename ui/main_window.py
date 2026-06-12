@@ -34,7 +34,10 @@ def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
         return
     for option in config.options:
         combo.addItem(option.label, option.value)
-    combo.setCurrentIndex(config.default)
+    if type(config.default) is int and config.default < len(config.options):
+        combo.setCurrentIndex(config.default)
+    else:
+        combo.setCurrentIndex(0)
 
     combo.setMinimumWidth(minimun_width)
 
