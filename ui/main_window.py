@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import (
 )
 
 from config.schemas import AppConfig, BaseFilter
-from utils.service import WallpaperService
+from services.service import WallpaperService
 
 
 def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
