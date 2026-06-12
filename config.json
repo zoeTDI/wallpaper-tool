@@ -1,0 +1,129 @@
+{
+  "path_config": {
+    "scan_path": "C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\431960"
+  },
+  "filter_config": {
+    "type": {
+      "label": "文件类型",
+      "default": "video",
+      "options": [
+        {
+          "label": "全部",
+          "value": "all"
+        },
+        {
+          "label": "网页",
+          "value": "web"
+        },
+        {
+          "label": "应用",
+          "value": "application"
+        },
+        {
+          "label": "场景",
+          "value": "scene"
+        },
+        {
+          "label": "视频",
+          "value": "video"
+        }
+      ]
+    },
+    "age": {
+      "label": "年龄限制",
+      "default": "mature",
+      "options": [
+        {
+          "label": "全部",
+          "value": "all"
+        },
+        {
+          "label": "全年龄",
+          "value": "everyone"
+        },
+        {
+          "label": "指导级",
+          "value": "questionable"
+        },
+        {
+          "label": "限制级",
+          "value": "mature"
+        }
+      ]
+    }
+  },
+  "table_config": {
+    "columns": [
+      {
+        "key": "preview",
+        "label": "预览图",
+        "mode": "interactive",
+        "width": 140,
+        "formatter": "preview"
+      },
+      {
+        "key": "title",
+        "label": "名称",
+        "mode": "stretch",
+        "width": null,
+        "formatter": "title"
+      },
+      {
+        "key": "type",
+        "label": "类型",
+        "mode": "interactive",
+        "width": 70,
+        "formatter": "type"
+      },
+      {
+        "key": "contentrating",
+        "label": "年龄限制",
+        "mode": "interactive",
+        "width": 90,
+        "formatter": "age"
+      },
+      {
+        "key": "create_time",
+        "label": "创建时间",
+        "mode": "interactive",
+        "width": 200,
+        "formatter": "datetime"
+      },
+      {
+        "key": "modify_time",
+        "label": "修改时间",
+        "mode": "interactive",
+        "width": 200,
+        "formatter": "datetime"
+      },
+      {
+        "key": "access_time",
+        "label": "访问时间",
+        "mode": "interactive",
+        "width": 200,
+        "formatter": "datetime"
+      },
+      {
+        "key": "file_size_bytes",
+        "label": "文件大小",
+        "mode": "interactive",
+        "width": 90,
+        "formatter": "size"
+      },
+      {
+        "key": "file",
+        "label": "文件路径",
+        "mode": "stretch",
+        "width": null,
+        "formatter": "title"
+      },
+      {
+        "key": "actions",
+        "label": "操作",
+        "mode": "interactive",
+        "width": 260,
+        "formatter": "actions"
+      }
+    ]
+  }
+}
