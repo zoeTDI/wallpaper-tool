@@ -9,7 +9,8 @@ class PathConfig:
     """
 
     # 扫描壁纸的绝对路径
-    scan_path: str
+    scan_path: str | None = None
+    out_path: str | None = None
 
 
 @dataclass
