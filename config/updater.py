@@ -1,8 +1,9 @@
 import json
 
 from utils.isDef import is_valid
-from .loader import get_project_path
-from .schemas import PathConfig
+from config.loader import get_project_path
+
+from config.schemas import PathConfig
 
 
 def update_config_file(new_path_config: PathConfig):
