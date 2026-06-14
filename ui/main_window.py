@@ -21,11 +21,14 @@ from PyQt5.QtWidgets import (
     QProgressDialog,
     QApplication,
     QMessageBox,
+    QAction,
 )
 
 from config import app_config
-from config.schemas import AppConfig, BaseFilter
+from config.schemas import AppConfig, BaseFilter, PathConfig
+from config.updater import update_config_file
 from services import WallpaperService
+from utils.isDef import is_valid
 
 
 def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
@@ -34,7 +37,8 @@ def create_filter(combo, config: BaseFilter, minimun_width: int = 80) -> None:
         return
     for option in config.options:
         combo.addItem(option.label, option.value)
-    if type(config.default) is int and config.default < len(config.options):
+
+    if type(config.default) is int and len(config.options) > config.default >= 0:
         combo.setCurrentIndex(config.default)
     else:
         combo.setCurrentIndex(0)
@@ -51,6 +55,8 @@ class MainWindow(QMainWindow):
         self.displayed_data: List[Dict] = []
 
         self.config: AppConfig = app_config
+        # menubar
+        self.menubar = None
         # top
         self.path_input = None
         self.scan_btn = None
@@ -106,6 +112,23 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(10, 10, 10, 10)
 
+        # 顶部菜单
+        self.menubar = self.menuBar()
+        # 一级菜单
+        config_menu = self.menubar.addMenu("文件夹设置")
+        # 菜单选项
+        set_scan_path_action = QAction("重设壁纸文件夹", self)
+        # set_scan_path_action.setShortcut("Ctrl+S") # 快捷键
+        set_scan_path_action.setStatusTip("重新选择要扫描的壁纸文件夹")
+        set_scan_path_action.triggered.connect(self.set_scan_dir)
+        config_menu.addAction(set_scan_path_action)
+
+        set_out_path_action = QAction("重设输出文件夹", self)
+        # set_scan_path_action.setShortcut("Ctrl+O") # 快捷键
+        set_out_path_action.setStatusTip("重新选择输出文件夹")
+        set_out_path_action.triggered.connect(self.set_out_path)
+        config_menu.addAction(set_out_path_action)
+
         # 上方区域
         top_region = QFrame()
         top_region.setFrameShape(QFrame.StyledPanel)  # 给区域加个边框方便观察
@@ -125,6 +148,22 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(top_region, stretch=1)
         main_layout.addWidget(middle_region, stretch=6)
         main_layout.addWidget(bottom_region, stretch=1)
+
+    def set_scan_dir(self):
+        selected_dir = QFileDialog.getExistingDirectory(
+            self, "请选择文件夹", self.config.path.scan_path
+        )
+        if is_valid(selected_dir):
+            update_config_file(PathConfig(scan_path=selected_dir))
+            self.config.path.scan_path = selected_dir
+
+    def set_out_path(self):
+        selected_dir = QFileDialog.getExistingDirectory(
+            self, "请选择文件夹", self.config.path.scan_path
+        )
+        if is_valid(selected_dir):
+            update_config_file(PathConfig(out_path=selected_dir))
+            self.config.path.out_path = selected_dir
 
     def init_top_region(self, region_widget):
         layout = QHBoxLayout(region_widget)
@@ -165,6 +204,7 @@ class MainWindow(QMainWindow):
         self.service.base.scan(dir_path)
         self.displayed_data = self.service.base.data
         self.filter_wallpapers()
+        update_config_file(PathConfig(scan_path=dir_path))
 
     def filter_wallpapers(self):
         selected_type = self.type_filter_combo.currentData()
@@ -420,7 +460,7 @@ class MainWindow(QMainWindow):
         try:
             progress.setValue(30)
             QApplication.processEvents()
-            target_folder = self.service.exporter.export(title, file)
+            self.service.exporter.export(title, file, self.config.path.out_path)
             progress.setValue(100)
             QMessageBox.information(self, "成功", f"壁纸【{title}】已成功导出")
         except Exception as e:
@@ -496,7 +536,9 @@ class MainWindow(QMainWindow):
             progress.setLabelText(f"正在导出 ({idx + 1}/{total_files}):\n{title}")
             QApplication.processEvents()
             try:
-                target_folder = self.service.exporter.export(title, file)
+                target_folder = self.service.exporter.export(
+                    title, file, self.config.path.out_path
+                )
                 success_count += 1
             except Exception as row_error:
                 error_msgs.append(f"【{title}】导出失败: {str(row_error)}")
