@@ -21,6 +21,15 @@ class ConfigManager:
     用户配置维护类，负责配置的加载、保存及响应式通知。
     """
 
+    # 基准路径
+    base_dir: str
+    # 配置文件路径
+    config_path: str
+    _filter_config: FilterConfig
+    _table_config: TableConfig
+    app_config: AppConfig
+    _subscribers: List[Callable[[AppConfig], None]]
+
     def __init__(self):
         # 1. 初始化路径
         if getattr(sys, "frozen", False):
@@ -33,7 +42,7 @@ class ConfigManager:
         self.config_path = os.path.join(self.base_dir, "config.json")
 
         # 2. 预置硬编码配置 (FilterConfig, TableConfig)
-        # 这里模拟加载项目中的基础配置
+        # 加载项目中的基础配置
         self._filter_config = self._load_default_filter_config()
         self._table_config = self._load_default_table_config()
 
